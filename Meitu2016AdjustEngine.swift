@@ -2,7 +2,6 @@ import UIKit
 import CoreImage
 
 final class Meitu2016AdjustEngine {
-
     static let shared = Meitu2016AdjustEngine()
 
     private let context = CIContext()
@@ -20,27 +19,26 @@ final class Meitu2016AdjustEngine {
         let b = Float(brightness / 50.0)
         let c = Float(1.0 + contrast / 50.0)
 
-        if brightness != 0 {
+        if brightness != 0 || contrast != 0 {
             ciImage = ciImage.applyingFilter(
-                "CIColorControls",
+                "CIColorMatrix",
                 parameters: [
-                    kCIInputBrightnessKey: b
-                ]
-            )
-        }
-
-        if contrast != 0 {
-            ciImage = ciImage.applyingFilter(
-                "CIColorControls",
-                parameters: [
-                    kCIInputContrastKey: c
+                    "inputRVector": CIVector(x: CGFloat(c), y: 0, z: 0, w: 0),
+                    "inputGVector": CIVector(x: 0, y: CGFloat(c), z: 0, w: 0),
+                    "inputBVector": CIVector(x: 0, y: 0, z: CGFloat(c), w: 0),
+                    "inputAVector": CIVector(x: 0, y: 0, z: 0, w: 1),
+                    "inputBiasVector": CIVector(
+                        x: CGFloat(0.5 - 0.5 * c + b),
+                        y: CGFloat(0.5 - 0.5 * c + b),
+                        z: CGFloat(0.5 - 0.5 * c + b),
+                        w: 0
+                    )
                 ]
             )
         }
 
         if sharpness != 0 {
             let s = Float(sharpness / 50.0)
-
             ciImage = ciImage.applyingFilter(
                 "CISharpenLuminance",
                 parameters: [
