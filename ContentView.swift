@@ -3,16 +3,17 @@ import PhotosUI
 
 struct ContentView: View {
     @State private var selectedItem: PhotosPickerItem?
-    @State private var image: UIImage?
+    @State private var originalImage: UIImage?
+    @State private var processedImage: UIImage?
     @State private var brightness: Double = 0
     @State private var contrast: Double = 0
     @State private var sharpness: Double = 0
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 18) {
+            VStack(spacing: 14) {
                 Group {
-                    if let image {
+                    if let image = processedImage ?? originalImage {
                         Image(uiImage: image)
                             .resizable()
                             .scaledToFit()
@@ -28,50 +29,71 @@ struct ContentView: View {
                     }
                 }
 
-                PhotosPicker(
-                    selection: $selectedItem,
-                    matching: .images
-                ) {
+                PhotosPicker(selection: $selectedItem, matching: .images) {
                     Text("选择照片")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
 
-                adjustmentSlider(
-                    name: "亮度",
-                    value: $brightness,
-                    range: -50...50
-                )
+                adjustmentSlider("亮度", $brightness, -50...50)
+                adjustmentSlider("对比度", $contrast, -50...50)
+                adjustmentSlider("锐度", $sharpness, -50...50)
 
-                adjustmentSlider(
-                    name: "对比度",
-                    value: $contrast,
-                    range: -50...50
-                )
-
-                adjustmentSlider(
-                    name: "锐度",
-                    value: $sharpness,
-                    range: -50...50
-                )
+                Button("恢复原图") {
+                    brightness = 0
+                    contrast = 0
+                    sharpness = 0
+                    processedImage = originalImage
+                }
+                .buttonStyle(.bordered)
 
                 Spacer()
             }
             .padding()
             .navigationTitle("2016 调色")
-            .task(id: selectedItem) {
-                guard let selectedItem else { return }
-                image = try? await selectedItem.loadTransferable(type: UIImage.self)
+            .onChange(of: selectedItem) { _ in
+                Task {
+                    guard let selectedItem else { return }
+
+                    if let data = try? await selectedItem.loadTransferable(type: Data.self),
+                       let image = UIImage(data: data) {
+                        originalImage = image
+                        processedImage = image
+                        brightness = 0
+                        contrast = 0
+                        sharpness = 0
+                    }
+                }
+            }
+            .onChange(of: brightness) { _ in
+                processImage()
+            }
+            .onChange(of: contrast) { _ in
+                processImage()
+            }
+            .onChange(of: sharpness) { _ in
+                processImage()
             }
         }
     }
 
+    private func processImage() {
+        guard let originalImage else { return }
+
+        processedImage = Meitu2016AdjustEngine.shared.process(
+            originalImage,
+            brightness: brightness,
+            contrast: contrast,
+            sharpness: sharpness
+        )
+    }
+
     private func adjustmentSlider(
-        name: String,
-        value: Binding<Double>,
-        range: ClosedRange<Double>
+        _ name: String,
+        _ value: Binding<Double>,
+        _ range: ClosedRange<Double>
     ) -> some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 2) {
             HStack {
                 Text(name)
                 Spacer()
