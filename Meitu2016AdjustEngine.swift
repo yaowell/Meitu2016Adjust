@@ -1,37 +1,22 @@
 import UIKit
 import Foundation
-import Compression
 
 final class Meitu2016AdjustEngine {
     static let shared = Meitu2016AdjustEngine()
 
-    private static let brightnessCompressed = """
-    eNq91AVbFGEUhmHsAOxu7G7F7g7sbsXuVuxWsBuwE2zs7u7uIFTYInd3NkDdb2Zg6sx8M4vLT7iv5z3HKVXqNGnTpc+QMVNmZ2cX1yxZs2XPkTNX7jx58+UvULBQ4SJFi7m5FS9RslTpMmXLla9QsVLlKlWrVa9Rs1Ztd/c6devVb9CwUeMmTZs1b9GyVes2bdu179DRw6NT5y5du3Xv0bNX7z59+/UfMHDQ4CFDh3l6Dh8xctToMWPHjZ8wcdLkKVOnTZ8xc9ZsL685c+fNX7Bw0eIlS5ctX7FylbePz+o1a9et37Bx0+YtW7dt9/X189+xc9fuPXv37T9w8NDhgIDAI0ePHT9x8lTQ6TNnz52/cPHS5StXr12/cfPW7Tt3791/8PDR4ydPnz1/8fLV6zdv3334+Onzl6/fvgeHhIb9/BUeoVJrdZFRMbFxBqPJbIlP+OvE8ru4gn6KL/AzfK6fw2f8Aj7l5/O9MfxARfz3NP9HMOL/DlepNdrIqOiYOL2BMJmt8X94fhtfzJ/IB/xy8ifxufm5fJSfy/fj8216e/ghJD9CpaHz642EyQL6EV/Kz+ZDfogP5RfwqfXz+P5CPqlXNH4bP5TiqzU6lD9WbzASZnE/xcf7IT4mP8hnjp/Pt+khPksP8On4bH4YzdfqEJ+av8WaIOmXe/7Y/BAfPH6Ij/QSfPHtQ/XR+qMR30iQ70++35H5cXy+Xj6fjs/hk/nR97c6wp8CfKXxIT7hKL/j+fL1Unyl/v+cXwk/2fG5fCY/xp9S+SX4mO0DenD7DJ/OT89fxC9z/jLzy1o/yIdPX058mE+vn8ov4secP27+mPwSxy+Hr2D7Qj5r/WR+dP48vz3nL55ffP3g8eP4yk4/iU/fPnX85PpRftAPvz94/kryw+sX/D5JflCy+MzxJ+an3h/bD71/4PyB+UP5gfUDx899/RKvz04+9fmZ46fzs/z/AGIj/go=
-    """
+    private static let brightnessBase64 = """
+AAECAwQFBgcICQoLCwwNDg8QERITFBUWFxgZGhscHR4fICEhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp6e3x9fn+AgYKDhIWGh4iJiouLjI2Oj5CRkpOUlZaXmJmZmpucnZ6foKGio6SlpqeoqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dfY2drb3N3e4OHi4+Tl5+jp6uzt7u/x8vP19vj5+vz9/wABAgMEBQYHCAkKCwwNDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVpbW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dXZ3eHl6e3x9fn+AgYKDhIWGh4iJioqLjI2Oj5CRkpOUlZaXmJmZmpucnZ6foKGio6Slpqeoqamqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dfY2drb3N3e3+Di4+Tl5ufp6uvs7u/w8fP09ff4+fv8/v8AAQIDBAUGBwgJCgsMDQ4PEBAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iIiYqLjI2Oj5CRkpOUlZaXmJmampucnZ6foKGio6SlpqeoqaqrrKytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbY2drb3N3e3+Dh4+Tl5ufo6evs7e7v8fLz9Pb3+Pr7/P7/AAECAwQFBgcICQoLDA0ODg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ucnZ6foKGio6SlpqeoqaqrrK2ur7CxsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dfY2drb3N3e3+Dh4uTl5ufo6err7e7v8PHy9PX29/n6+/z+/wABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT09QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y8vb6/wMHCw8TFxsfIycrLzM3O0NHS09TV1tfY2drb3N3e3+Dh4uPl5ufo6err7O3v8PHy8/T19/j5+vv9/v8AAQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyAhIiMkJSYnJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmZmpucnZ6foKGio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uTl5ufo6err7O3u7/Dy8/T19vf4+fr8/f7/AAECAwQFBgcICQoLDA0ODg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj9AQUJCRUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOFhoeIiYqLjI2Oj5CRkpOUlZaYmZqbnJ2en6Cio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6Cio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09TV1tfY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/
+"""
 
-    private static let contrastCompressed = """
-    eNpjYGRiZmFlY+fg5OLm4eXjFxAUEhYRFROXkJSSlpGVk1dQVFJWUVVT19DU0tbR1dM3MDQyNjE1M7ewtLK2sbWzd3B0cnZxdXP38PTy9vH18w8IDAoOCQ0Lj4iMio6JjYtPSExKTklNS8/IzMrOyc3LLygsKi4pLSuvqKyqrqmtq29obGpuaW1r7+js6u7p7eufMHHS5ClTp02fMXPW7Dlz581fsHDR4iVLly1fsXLV6jVr163fsHHT5i1bt23fsXPX7j179+0/cPDQ4SNHjx0/cfLU6TNnz52/cPHS5StXr12/cfPW7Tt3791/8PDR4ydPnz1/8fLV6zdv373/8PHT5y9fv33/8fPX7z9///1nGPX/qP9H/T/qf2z+p1IAkOt/KnmfZP/TLAEQ53+aRT8R/qd9BsDvf9onfzT/AwDAyfwu
-    """
+    private static let contrastBase64 = """
+AAECAwQFBgcICQoLDA0OEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6Oj5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Hy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Hy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZmpubnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJCgsMDg8QERITFBUWFxgZGhscHB0eHyAhIiMkJSYnKCkqKywtLi8wMTM0NTY3ODk6Ozw9Pj9AQUJDRUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6Cio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09jZ2tvb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/
+"""
 
-    private static let brightnessLUT = inflate(
-        brightnessCompressed,
-        outputSize: 4096
-    )
+    private static let brightnessLUT = Data(base64Encoded: brightnessBase64)!.map { $0 }
+    private static let contrastLUT = Data(base64Encoded: contrastBase64)!.map { $0 }
 
-    private static let contrastLUT = inflate(
-        contrastCompressed,
-        outputSize: 2048
-    )
-
-    func process(
-        _ image: UIImage,
-        brightness: Double,
-        contrast: Double,
-        sharpness: Double
-    ) -> UIImage? {
-        guard let cgImage = image.cgImage else {
-            return nil
-        }
+    func process(_ image: UIImage, brightness: Double, contrast: Double, sharpness: Double) -> UIImage? {
+        guard let cgImage = image.cgImage else { return nil }
 
         let width = cgImage.width
         let height = cgImage.height
@@ -102,29 +87,39 @@ final class Meitu2016AdjustEngine {
         _ data: inout [UInt8],
         value: Double
     ) {
-        let value = max(
+        let v = max(
             -50.0,
             min(50.0, value)
         )
 
-        if value == 0 {
+        if v == 0 {
             return
         }
 
-        let internalValue = value / 10.0
+        let internalValue = v / 10.0
 
         let index = Int(
             (internalValue * 1.5 + 0.5)
                 .rounded(.towardZero)
         )
 
-        let lutIndex = max(
-            -7,
-            min(8, index)
-        )
+        if index == 0 {
+            return
+        }
 
-        let tableIndex = lutIndex + 7
-        let base = tableIndex * 256
+        let table = index < 0
+            ? index + 7
+            : index + 6
+
+        let base = table * 256
+
+        guard
+            table >= 0,
+            table < 15,
+            base + 255 < Self.brightnessLUT.count
+        else {
+            return
+        }
 
         for i in stride(
             from: 0,
@@ -147,45 +142,70 @@ final class Meitu2016AdjustEngine {
                 ]
         }
     }
-        private func applyContrast(
+
+    private func applyContrast(
         _ data: inout [UInt8],
         value: Double
     ) {
-        let value = max(
+        let v = max(
             -50.0,
             min(50.0, value)
         )
 
-        if value == 0 {
+        if v == 0 {
             return
         }
 
-        let internalValue = value / 10.0
+        let internalValue = v / 10.0
 
-        let indexValue: Double
+        let index: Int
 
         if internalValue < 0 {
-            indexValue =
-                internalValue * 0.5 + 0.5
+            index = Int(
+                internalValue.rounded(.towardZero)
+            )
         } else {
-            indexValue = internalValue
+            index = Int(
+                (internalValue * 0.5 + 0.5)
+                    .rounded(.towardZero)
+            )
         }
 
-        let index = Int(
-            indexValue.rounded(.towardZero)
-        )
-
-        let lutIndex = max(
-            -2,
-            min(5, index)
-        )
-
-        if lutIndex == 0 {
+        if index == 0 ||
+            index == -1 ||
+            index == 1 ||
+            index == 2 {
             return
         }
 
-        let tableIndex = lutIndex + 2
-        let base = tableIndex * 256
+        let table: Int
+
+        switch index {
+        case -5:
+            table = 0
+        case -4:
+            table = 1
+        case -3:
+            table = 2
+        case -2:
+            table = 3
+        case 3:
+            table = 4
+        case 4:
+            table = 5
+        case 5:
+            table = 6
+        default:
+            return
+        }
+
+        let base = table * 256
+
+        guard
+            base + 255 < Self.contrastLUT.count
+        else {
+            return
+        }
 
         for i in stride(
             from: 0,
@@ -215,7 +235,9 @@ final class Meitu2016AdjustEngine {
         height: Int,
         value: Double
     ) {
-        let s = Float(value / 50.0)
+        let s = Float(
+            value / 50.0
+        )
 
         if s == 0 {
             return
@@ -272,47 +294,5 @@ final class Meitu2016AdjustEngine {
                 }
             }
         }
-    }
-
-    private static func inflate(
-        _ base64: String,
-        outputSize: Int
-    ) -> [UInt8] {
-        guard let compressed = Data(
-            base64Encoded: base64,
-            options: .ignoreUnknownCharacters
-        ) else {
-            return []
-        }
-
-        var output = [UInt8](
-            repeating: 0,
-            count: outputSize
-        )
-
-        let decoded = output.withUnsafeMutableBytes {
-            destination in
-            compressed.withUnsafeBytes {
-                source in
-                compression_decode_buffer(
-                    destination
-                        .bindMemory(to: UInt8.self)
-                        .baseAddress!,
-                    outputSize,
-                    source
-                        .bindMemory(to: UInt8.self)
-                        .baseAddress!,
-                    compressed.count,
-                    nil,
-                    COMPRESSION_ZLIB
-                )
-            }
-        }
-
-        if decoded != outputSize {
-            return []
-        }
-
-        return output
     }
 }
