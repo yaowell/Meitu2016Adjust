@@ -1,50 +1,74 @@
 import UIKit
-import Foundation
+import CoreGraphics
+import Compression
 
 final class Meitu2016AdjustEngine {
     static let shared = Meitu2016AdjustEngine()
 
-    private static let brightnessBase64 = """
-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
-"""
+    private static let lutCompressed = Data(base64Encoded: """
+eNrtnfejZ1V1xS3UYSjD0EEQRDoiRQUUsVAUUATpoICGpoCOVCkGg0hoA0pg6DUYiQU1RCXEaNSoFCFEQBQYpM5QZhiYGYoUc885++x+zj33vTf8xJ+w3l77
+s/a973v3fsMb3/imN715vvnmX2CBBRdcaOGFxy2yyPjxiy622OJLLDFhwpITJy619NLLLLPscsstv8IKK6640lvesvIqq7z1rauuttrbVl/97W9fY80111p7
+7XXWWXe99dZ/xzs22OCdG2640UYbb7LJu9797ve8Z9PNNtv8ve993/u2eP/7t/zABz74wQ99+MNbbb31Ntts+5GPfHS77bbffoePfezjO+74iU/stPPOn9xl
+l1132233PfbYc6+99t5nn099+tP77rf//p/57Gf/7oADDzzo4EM+97nPH3rY4Yd/4YuTvvSlI4486uhjjv3ycccdf8KJX/n7k776Dyd/7ZSvn/qPp51+xlmT
+zz7nG98897zzp1xw0cWXXHb5FVddfc23vn3td777/R/88N/+/Sc33Pizn//3r/7ndzf//vb/u+ue+x54ePpTz77wtzd0+t8M+hcC/YuC/iVB/7KgfyXQv+qq
+q70t6F9jjTXXCvrXXXe99YP+d74zyN94k3e9K8jfdLPNNw/yt3j/llsG+R/68FZbgfyPgvyPg/xP7rLrrrvtvvsee+651957J/n7MfmHBPmHBfmTQH6n38g/
+86zJQf4/nTflggsvuuTSy6648qp/vuZfvv2v3/nedT/40fU/jvp/+evf/O6W3//vH+7+031/eWT6jLL+xUH/UqB/+eVD+Vd6y8orh/JH/an8a0H514fybwzl
+3xTKvwWUP8nfeptttw3yt9t+hx1A/k5G/qeS/M908g/o5B8c5B8a5H8xyY/l9+R35e/knz/lQlX+67ry//in//Gf//WLX/76tzfdctsdnf77ff3jSP8E0J/s
+vzzYf2Vr/3XB/rL8m0H5pfu3Bfcn+TsW5O+r5H+eyT8K5Qv9ZzL3X3jxJZdefsWVV7Pyo/1/e/Ott99x5x//fP+Djzzu6x9P+ieSftb+0v7rgP1N+TeH8hv3
+s+bfyTQ/k9+5/6CDUP4Xonxo/uPr7r/40ssuv5KX//pQ/k5/Z//Y/n/889QHH+X65xf6FyP9sv2N/Rn9TPkZ/KT7ZfNr9u2b2IfyiX1HAPua3N+V/1u5/IF+
+yf6/ualr/w5/90596NHHZ84u619C6Jftn+y/Btkfy7+RKH+Sv6Vwv2z+JD+5v4L+wzj6y81P7k/wy+Xv6PfTbP+bbr2tw9899z7w0GNPSP0Lav0GfwX7l8uf
+3P8B7f5K8/ehn9gn9Sf5XfnB/R38uvJf25X/+7H8QL/O/qH9O/y7+hd29GP7p/Kvou3fV/6C+4vsq6Ef2eeVP8qP0R/gJ8sf6Jf039K1/51/7OLvYV+/iT+l
+n9tflX9Dv/zK/aXBp4b+fvaR+0P0J/hB+VP4ZfvH9u/w/5eHpz3x9OwXy/pt+3P7y/BH+1fKr9zvsK+O/j72ofsBfl325fJn+sX069r/rns6/Y9Me3LU+pX9
+A7H7e/gXz7+cv1qACoCsG6A4gQ8VH9x+m27iG7wp8afkn7zClQAsLEBBAD1EzB/AXKiugqM4y/iX+Cv0f4+/uT4g/r/HzsYFkM=
+""")
 
-    private static let contrastBase64 = """
-AAECAwQFBgcICQoLDA0OEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8PT4/QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6Oj5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Hy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ent8fX5/gIGCg4SFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Hy8/T19vf4+fr7/P3+/wABAgMEBQYHCAkKCwwNDg8QERITFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vMDEyMzQ1Njc4OTo7PD0+P0BBQkNERUZHSElKSktMTU5PUFFSU1RVVldYWVpbXF1eX2BhYmNkZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOEhYaHiImKi4yNjo+QkZKTlJWWl5iZmpubnJ2en6ChoqOkpaanqKmqq6ytrq+wsbKztLW2t7i5uru8vb6/wMHCw8TFxsfIycrLzM3Oz9DR0tPU1dbY2drb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISIjJCUmJygpKissLS4vLzAxMjM0NTY3ODk6Ozw9Pj9AQUJDREVGR0hJSktMTU5OT1BRUlNUVVZXWFlaW1xdXl9gYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXp7fH1+f4CBgoOFhoeIiYqLjI2Oj5CRkpOUlZaXmJmam5ydnp+goaKjpKWmp6ipqqusra6vsLGys7S1tre4ubq7vL2+v8DBwsPExcbHyMnKy8zNzs/Q0dLT1NXW19jZ2tvc3d7f4OHi4+Tl5ufo6err7O3u7/Dx8vP09fb3+Pn6+/z9/v8AAQIDBAUGBwgJCgsMDg8QERITFBUWFxgZGhscHB0eHyAhIiMkJSYnKCkqKywtLi8wMTM0NTY3ODk6Ozw9Pj9AQUJDRUZHSElKS0xNTk9QUVJTVFVWV1hZWltcXV5fYGFiY2RlZmdoaWprbG1ub3BxcnN0dXZ3eHl6e3x9fn+AgYKDhIWGh4iJiouMjY6PkJGSk5SVlpeYmZqbnJ2en6Cio6SlpqeoqaqrrK2ur7CxsrO0tba3uLm6u7y9vr/AwcLDxMXGx8jJysvMzc7P0NHS09jZ2tvb3N3e3+Dh4uPk5ebn6Onq6+zt7u/w8fLz9PX29/j5+vv8/f7/
-"""
+    private static let lut: [UInt8] = {
+        var out = [UInt8](repeating: 0, count: 57600)
+        let count = lutCompressed.withUnsafeBytes { raw in
+            compression_decode_buffer(
+                &out,
+                out.count,
+                raw.bindMemory(to: UInt8.self).baseAddress!,
+                raw.count,
+                nil,
+                COMPRESSION_ZLIB
+            )
+        }
+        precondition(count == out.count)
+        return out
+    }()
 
-    private static let brightnessLUT = Data(base64Encoded: brightnessBase64)!.map { $0 }
-    private static let contrastLUT = Data(base64Encoded: contrastBase64)!.map { $0 }
+    func process(
+        _ image: UIImage,
+        brightness: Double,
+        contrast: Double,
+        sharpness: Double
+    ) -> UIImage? {
+        guard let cg = image.cgImage else { return nil }
 
-    func process(_ image: UIImage, brightness: Double, contrast: Double, sharpness: Double) -> UIImage? {
-        guard let cgImage = image.cgImage else { return nil }
+        let width = cg.width
+        let height = cg.height
+        let rowBytes = width * 4
 
-        let width = cgImage.width
-        let height = cgImage.height
-        let bytesPerRow = width * 4
+        var data = [UInt8](repeating: 0, count: rowBytes * height)
 
-        var data = [UInt8](
-            repeating: 0,
-            count: bytesPerRow * height
-        )
+        let space = CGColorSpaceCreateDeviceRGB()
 
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-
-        guard let context = CGContext(
+        guard let ctx = CGContext(
             data: &data,
             width: width,
             height: height,
             bitsPerComponent: 8,
-            bytesPerRow: bytesPerRow,
-            space: colorSpace,
-            bitmapInfo:
-                CGImageAlphaInfo.premultipliedFirst.rawValue |
+            bytesPerRow: rowBytes,
+            space: space,
+            bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue |
                 CGBitmapInfo.byteOrder32Big.rawValue
         ) else {
             return nil
         }
 
-        context.draw(
-            cgImage,
+        ctx.draw(
+            cg,
             in: CGRect(
                 x: 0,
                 y: 0,
@@ -53,14 +77,10 @@ AAECAwQFBgcICQoLDA0OEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8
             )
         )
 
-        applyBrightness(
+        applyOriginalLUTs(
             &data,
-            value: brightness
-        )
-
-        applyContrast(
-            &data,
-            value: contrast
+            brightness: brightness,
+            contrast: contrast
         )
 
         if sharpness != 0 {
@@ -72,159 +92,144 @@ AAECAwQFBgcICQoLDA0OEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8
             )
         }
 
-        guard let output = context.makeImage() else {
+        guard let out = ctx.makeImage() else {
             return nil
         }
 
         return UIImage(
-            cgImage: output,
+            cgImage: out,
             scale: image.scale,
             orientation: image.imageOrientation
         )
     }
 
-    private func applyBrightness(
+    private func applyOriginalLUTs(
         _ data: inout [UInt8],
-        value: Double
+        brightness: Double,
+        contrast: Double
     ) {
-        let v = max(
-            -50.0,
-            min(50.0, value)
+        let b = Float(
+            max(
+                -100.0,
+                min(100.0, brightness)
+            )
         )
 
-        if v == 0 {
-            return
-        }
-
-        let internalValue = v / 10.0
-
-        let index = Int(
-            (internalValue * 1.5 + 0.5)
-                .rounded(.towardZero)
+        let c = Float(
+            max(
+                -100.0,
+                min(100.0, contrast)
+            )
         )
 
-        if index == 0 {
-            return
+        let brightnessIndex = Int(
+            b * 1.5 + 0.5
+        )
+
+        let contrastIndex =
+            c < 0
+            ? Int(c)
+            : Int(c * 0.5 + 0.5)
+
+        applyPass(
+            &data,
+            brightnessIndex: brightnessIndex,
+            contrastIndex: contrastIndex
+        )
+
+        applyPass(
+            &data,
+            brightnessIndex: brightnessIndex,
+            contrastIndex: contrastIndex
+        )
+    }
+
+    private func applyPass(
+        _ data: inout [UInt8],
+        brightnessIndex: Int,
+        contrastIndex: Int
+    ) {
+        if let offset = brightnessOffset(brightnessIndex) {
+            applyLUT(
+                &data,
+                offset: offset
+            )
         }
 
-        let table = index < 0
-            ? index + 7
-            : index + 6
-
-        let base = table * 256
-
-        guard
-            table >= 0,
-            table < 15,
-            base + 255 < Self.brightnessLUT.count
-        else {
-            return
-        }
-
-        for i in stride(
-            from: 0,
-            to: data.count,
-            by: 4
-        ) {
-            data[i + 1] =
-                Self.brightnessLUT[
-                    base + Int(data[i + 1])
-                ]
-
-            data[i + 2] =
-                Self.brightnessLUT[
-                    base + Int(data[i + 2])
-                ]
-
-            data[i + 3] =
-                Self.brightnessLUT[
-                    base + Int(data[i + 3])
-                ]
+        if let offset = contrastOffset(contrastIndex) {
+            applyLUT(
+                &data,
+                offset: offset
+            )
         }
     }
 
-    private func applyContrast(
+    private func brightnessOffset(
+        _ index: Int
+    ) -> Int? {
+        if index < 0 {
+            guard index >= -75 else {
+                return nil
+            }
+
+            return (index + 75) * 256
+        }
+
+        if index > 0 {
+            guard index <= 75 else {
+                return nil
+            }
+
+            return (75 + index - 1) * 256
+        }
+
+        return nil
+    }
+
+    private func contrastOffset(
+        _ index: Int
+    ) -> Int? {
+        if index < 0 {
+            guard index >= -50 else {
+                return nil
+            }
+
+            return (150 + index) * 256
+        }
+
+        if index > 0 {
+            guard index <= 25 else {
+                return nil
+            }
+
+            return (150 + index - 1) * 256
+        }
+
+        return nil
+    }
+
+    private func applyLUT(
         _ data: inout [UInt8],
-        value: Double
+        offset: Int
     ) {
-        let v = max(
-            -50.0,
-            min(50.0, value)
-        )
-
-        if v == 0 {
-            return
-        }
-
-        let internalValue = v / 10.0
-
-        let index: Int
-
-        if internalValue < 0 {
-            index = Int(
-                internalValue.rounded(.towardZero)
-            )
-        } else {
-            index = Int(
-                (internalValue * 0.5 + 0.5)
-                    .rounded(.towardZero)
-            )
-        }
-
-        if index == 0 ||
-            index == -1 ||
-            index == 1 ||
-            index == 2 {
-            return
-        }
-
-        let table: Int
-
-        switch index {
-        case -5:
-            table = 0
-        case -4:
-            table = 1
-        case -3:
-            table = 2
-        case -2:
-            table = 3
-        case 3:
-            table = 4
-        case 4:
-            table = 5
-        case 5:
-            table = 6
-        default:
-            return
-        }
-
-        let base = table * 256
-
-        guard
-            base + 255 < Self.contrastLUT.count
-        else {
-            return
-        }
-
         for i in stride(
-            from: 0,
+            from: 1,
             to: data.count,
             by: 4
         ) {
+            data[i] =
+                Self.lut[
+                    offset + Int(data[i])
+                ]
+
             data[i + 1] =
-                Self.contrastLUT[
-                    base + Int(data[i + 1])
+                Self.lut[
+                    offset + Int(data[i + 1])
                 ]
 
             data[i + 2] =
-                Self.contrastLUT[
-                    base + Int(data[i + 2])
-                ]
-
-            data[i + 3] =
-                Self.contrastLUT[
-                    base + Int(data[i + 3])
+                Self.lut[
+                    offset + Int(data[i + 2])
                 ]
         }
     }
@@ -235,62 +240,50 @@ AAECAwQFBgcICQoLDA0OEBESExQVFhcYGRobHB0eHyAhIiMkJSYnKCkqKywtLi8wMTIzNDU2Nzg5Ojs8
         height: Int,
         value: Double
     ) {
-        let s = Float(
-            value / 50.0
-        )
+        let s = Float(value / 50.0)
 
         if s == 0 {
             return
         }
 
-        let source = data
+        let src = data
         let center = 1.0 + 4.0 * s
 
         for y in 0..<height {
-            let topY = max(
-                0,
-                y - 1
-            )
-
-            let bottomY = min(
-                height - 1,
-                y + 1
-            )
+            let ym = max(0, y - 1)
+            let yp = min(height - 1, y + 1)
 
             for x in 0..<width {
-                let leftX = max(
-                    0,
-                    x - 1
-                )
+                let xm = max(0, x - 1)
+                let xp = min(width - 1, x + 1)
 
-                let rightX = min(
-                    width - 1,
-                    x + 1
-                )
-
-                let p = (y * width + x) * 4
-                let l = (y * width + leftX) * 4
-                let r = (y * width + rightX) * 4
-                let t = (topY * width + x) * 4
-                let b = (bottomY * width + x) * 4
+                let i = (y * width + x) * 4
+                let l = (y * width + xm) * 4
+                let r = (y * width + xp) * 4
+                let t = (ym * width + x) * 4
+                let b = (yp * width + x) * 4
 
                 for channel in 1...3 {
-                    let result =
-                        Float(source[p + channel]) * center
-                        - Float(source[l + channel]) * s
-                        - Float(source[r + channel]) * s
-                        - Float(source[t + channel]) * s
-                        - Float(source[b + channel]) * s
+                    let v =
+                        Float(src[i + channel]) * center
+                        -
+                        Float(
+                            src[l + channel]
+                            + src[r + channel]
+                            + src[t + channel]
+                            + src[b + channel]
+                        ) * s
 
-                    data[p + channel] = UInt8(
-                        max(
-                            0,
-                            min(
-                                255,
-                                Int(result.rounded())
+                    data[i + channel] =
+                        UInt8(
+                            max(
+                                0,
+                                min(
+                                    255,
+                                    Int(v.rounded())
+                                )
                             )
                         )
-                    )
                 }
             }
         }
