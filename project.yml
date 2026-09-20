@@ -10,10 +10,9 @@ targets:
     type: application
     platform: iOS
     sources:
-      - path: .
-        excludes:
-          - README.md
-          - project.yml
+      - path: Meitu2016AdjustApp.swift
+      - path: ContentView.swift
+      - path: Meitu2016AdjustEngine.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.meitu2016.adjust
