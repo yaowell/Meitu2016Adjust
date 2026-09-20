@@ -15,21 +15,23 @@ eNrt1vVDE2EcBnDsAOxu7G7F7g7sbsXuRLFbwW7ATrCxu7u7g1AXMGBjHeouttvdvnf33oKf+BM+9zzP
         }
 
         var output = [UInt8](repeating: 0, count: 5888)
+        let outputSize = output.count
+        let compressedSize = compressed.count
 
         let count = compressed.withUnsafeBytes { src in
             output.withUnsafeMutableBytes { dst in
                 compression_decode_buffer(
                     dst.bindMemory(to: UInt8.self).baseAddress!,
-                    output.count,
+                    outputSize,
                     src.bindMemory(to: UInt8.self).baseAddress!,
-                    compressed.count,
+                    compressedSize,
                     nil,
                     COMPRESSION_ZLIB
                 )
             }
         }
 
-        guard count == 5888 else {
+        guard count == outputSize else {
             return nil
         }
 
