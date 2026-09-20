@@ -23,47 +23,50 @@ final class Meitu2016AdjustEngine {
 
         var output = input
 
-        let b = max(-1.0, min(1.0, brightness / 50.0))
-        let c = max(-1.0, min(1.0, contrast / 50.0))
-        let s = max(-1.0, min(1.0, sharpness / 50.0))
-
-        if b < 0 {
-            output = oldMeituDarken(output, amount: -b)
-        } else if b > 0 {
+        if brightness < -0.001 {
+            output = applyOldMeituBrightness(
+                output,
+                amount: min(1.0, -brightness / 50.0)
+            )
+        } else if brightness > 0.001 {
             let filter = CIFilter.colorControls()
             filter.inputImage = output
-            filter.brightness = Float(b * 0.65)
+            filter.brightness = Float(brightness / 50.0 * 0.55)
             filter.contrast = 1.0
             filter.saturation = 1.0
+
             if let result = filter.outputImage {
                 output = result
             }
         }
 
-        if abs(c) > 0.001 {
+        if abs(contrast) > 0.001 {
             let filter = CIFilter.colorControls()
             filter.inputImage = output
             filter.brightness = 0
-            filter.contrast = Float(1.0 + c * 0.8)
+            filter.contrast = Float(1.0 + contrast / 50.0 * 0.65)
             filter.saturation = 1.0
+
             if let result = filter.outputImage {
                 output = result
             }
         }
 
-        if abs(s) > 0.001 {
+        if sharpness > 0.001 {
             let filter = CIFilter.sharpenLuminance()
             filter.inputImage = output
-            filter.sharpness = Float(s * 0.8)
             filter.radius = 1.0
+            filter.sharpness = Float(sharpness / 50.0 * 0.8)
+
             if let result = filter.outputImage {
                 output = result
             }
         }
 
-        let extent = output.extent
-
-        guard let cgImage = context.createCGImage(output, from: extent) else {
+        guard let cgImage = context.createCGImage(
+            output,
+            from: output.extent
+        ) else {
             return nil
         }
 
@@ -74,27 +77,119 @@ final class Meitu2016AdjustEngine {
         )
     }
 
-    private func oldMeituDarken(
+    private func applyOldMeituBrightness(
         _ image: CIImage,
         amount: Double
     ) -> CIImage {
-        let a = max(0.0, min(1.0, amount))
+        let size = 32
+        var cube = [Float]()
+        cube.reserveCapacity(size * size * size * 4)
 
-        let filter = CIFilter.colorControls()
-        filter.inputImage = image
+        for b in 0..<size {
+            let blue = Double(b) / Double(size - 1)
 
-        let brightness = -0.42 * a
-        let contrast = 1.0 + 0.28 * a
-        let saturation = 1.0 + 0.18 * a
+            for g in 0..<size {
+                let green = Double(g) / Double(size - 1)
 
-        filter.brightness = Float(brightness)
-        filter.contrast = Float(contrast)
-        filter.saturation = Float(saturation)
+                for r in 0..<size {
+                    let red = Double(r) / Double(size - 1)
 
-        guard let result = filter.outputImage else {
-            return image
+                    let y =
+                        0.2126 * red +
+                        0.7152 * green +
+                        0.0722 * blue
+
+                    let shadow = max(
+                        0.0,
+                        min(1.0, 1.0 - y / 0.55)
+                    )
+
+                    let highlight = max(
+                        0.0,
+                        min(1.0, (y - 0.25) / 0.75)
+                    )
+
+                    let darkScale =
+                        1.0 -
+                        amount * (
+                            0.28 +
+                            0.42 * pow(highlight, 0.72)
+                        )
+
+                    var rr = red * darkScale
+                    var gg = green * darkScale
+                    var bb = blue * darkScale
+
+                    let blueDominance =
+                        max(
+                            0.0,
+                            blue - max(red, green) * 0.72
+                        )
+
+                    let blueBoost =
+                        amount *
+                        blueDominance *
+                        (0.22 + 0.42 * highlight)
+
+                    bb += blueBoost
+
+                    let warmPreserve =
+                        max(
+                            0.0,
+                            red - blue * 0.72
+                        )
+
+                    let warmBoost =
+                        amount *
+                        warmPreserve *
+                        0.10 *
+                        (0.35 + shadow)
+
+                    rr += warmBoost
+
+                    let saturation =
+                        1.0 +
+                        amount * 0.12
+
+                    let mid =
+                        0.299 * rr +
+                        0.587 * gg +
+                        0.114 * bb
+
+                    rr = mid + (rr - mid) * saturation
+                    gg = mid + (gg - mid) * saturation
+                    bb = mid + (bb - mid) * saturation
+
+                    let shadowLift =
+                        amount *
+                        0.035 *
+                        shadow
+
+                    rr += shadowLift
+                    gg += shadowLift
+                    bb += shadowLift
+
+                    rr = max(0.0, min(1.0, rr))
+                    gg = max(0.0, min(1.0, gg))
+                    bb = max(0.0, min(1.0, bb))
+
+                    cube.append(Float(rr))
+                    cube.append(Float(gg))
+                    cube.append(Float(bb))
+                    cube.append(1.0)
+                }
+            }
         }
 
-        return result
+        let data = cube.withUnsafeBufferPointer {
+            Data(buffer: $0)
+        }
+
+        let filter = CIFilter.colorCube()
+        filter.inputImage = image
+        filter.cubeDimension = Float(size)
+        filter.cubeData = data
+
+        return filter.outputImage ?? image
     }
 }
