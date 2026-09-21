@@ -1,6 +1,5 @@
 import UIKit
 import CoreImage
-import CoreImage.CIFilterBuiltins
 
 final class Meitu2016AdjustEngine {
     static let shared = Meitu2016AdjustEngine()
@@ -23,43 +22,46 @@ final class Meitu2016AdjustEngine {
 
         var output = input
 
+        // 1. 亮度处理：负数保留老美图 R/G/B 分通道 3D LUT 压暗；正数使用 CIColorControls
         if brightness < -0.001 {
             output = applyOldMeituBrightness(
                 output,
                 amount: min(1.0, -brightness / 50.0)
             )
         } else if brightness > 0.001 {
-            let filter = CIFilter.colorControls()
-            filter.inputImage = output
-            filter.brightness = Float(brightness / 50.0 * 0.55)
-            filter.contrast = 1.0
-            filter.saturation = 1.0
-
-            if let result = filter.outputImage {
-                output = result
+            if let filter = CIFilter(name: "CIColorControls") {
+                filter.setValue(output, forKey: kCIInputImageKey)
+                filter.setValue(Float(brightness / 50.0 * 0.55), forKey: "inputBrightness")
+                filter.setValue(Float(1.0), forKey: "inputContrast")
+                filter.setValue(Float(1.0), forKey: "inputSaturation")
+                if let result = filter.outputImage {
+                    output = result
+                }
             }
         }
 
+        // 2. 对比度处理：基于传统 CIColorControls 调节
         if abs(contrast) > 0.001 {
-            let filter = CIFilter.colorControls()
-            filter.inputImage = output
-            filter.brightness = 0
-            filter.contrast = Float(1.0 + contrast / 50.0 * 0.65)
-            filter.saturation = 1.0
-
-            if let result = filter.outputImage {
-                output = result
+            if let filter = CIFilter(name: "CIColorControls") {
+                filter.setValue(output, forKey: kCIInputImageKey)
+                filter.setValue(Float(0.0), forKey: "inputBrightness")
+                filter.setValue(Float(1.0 + contrast / 50.0 * 0.65), forKey: "inputContrast")
+                filter.setValue(Float(1.0), forKey: "inputSaturation")
+                if let result = filter.outputImage {
+                    output = result
+                }
             }
         }
 
+        // 3. 锐化/清晰度处理：兼容性 CISharpenLuminance 接口
         if sharpness > 0.001 {
-            let filter = CIFilter.sharpenLuminance()
-            filter.inputImage = output
-            filter.radius = 1.0
-            filter.sharpness = Float(sharpness / 50.0 * 0.8)
-
-            if let result = filter.outputImage {
-                output = result
+            if let filter = CIFilter(name: "CISharpenLuminance") {
+                filter.setValue(output, forKey: kCIInputImageKey)
+                filter.setValue(Float(1.0), forKey: "inputRadius")
+                filter.setValue(Float(sharpness / 50.0 * 0.8), forKey: "inputSharpness")
+                if let result = filter.outputImage {
+                    output = result
+                }
             }
         }
 
@@ -75,6 +77,44 @@ final class Meitu2016AdjustEngine {
             scale: image.scale,
             orientation: image.imageOrientation
         )
+    }
+
+    // ========== 【备选算法：CLImageEditor 的 Gamma + 曝光 EV 调色】 ==========
+    /// 提取自 CLImageEditor 经典算子（将亮度转为 EV 曝光，对比度转为 Gamma 曲线）
+    private func applyCLStyleAdjustment(
+        _ image: CIImage,
+        brightness: Double,
+        contrast: Double,
+        saturation: Double = 1.0
+    ) -> CIImage {
+        var currentImage = image
+
+        // 饱和度
+        if let filter = CIFilter(name: "CIColorControls") {
+            filter.setValue(currentImage, forKey: kCIInputImageKey)
+            filter.setValue(Float(saturation), forKey: "inputSaturation")
+            if let out = filter.outputImage { currentImage = out }
+        }
+
+        // 亮度 (CLImageEditor 映射: 2 * brightness -> inputEV)
+        if abs(brightness) > 0.001 {
+            if let filter = CIFilter(name: "CIExposureAdjust") {
+                filter.setValue(currentImage, forKey: kCIInputImageKey)
+                filter.setValue(Float(brightness * 2.0), forKey: "inputEV")
+                if let out = filter.outputImage { currentImage = out }
+            }
+        }
+
+        // 对比度 (CLImageEditor 映射: contrast^2 -> inputPower Gamma)
+        if abs(contrast - 1.0) > 0.001 {
+            if let filter = CIFilter(name: "CIGammaAdjust") {
+                filter.setValue(currentImage, forKey: kCIInputImageKey)
+                filter.setValue(Float(contrast * contrast), forKey: "inputPower")
+                if let out = filter.outputImage { currentImage = out }
+            }
+        }
+
+        return currentImage
     }
 
     // ========== 【重写这里：分通道亮度，R G压暗多，蓝色少压】 ==========
@@ -126,11 +166,13 @@ final class Meitu2016AdjustEngine {
             Data(buffer: $0)
         }
 
-        let filter = CIFilter.colorCube()
-        filter.inputImage = image
-        filter.cubeDimension = Float(size)
-        filter.cubeData = data
+        if let filter = CIFilter(name: "CIColorCube") {
+            filter.setValue(image, forKey: kCIInputImageKey)
+            filter.setValue(size, forKey: "inputCubeDimension")
+            filter.setValue(data, forKey: "inputCubeData")
+            return filter.outputImage ?? image
+        }
 
-        return filter.outputImage ?? image
+        return image
     }
 }
