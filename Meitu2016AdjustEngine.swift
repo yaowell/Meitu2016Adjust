@@ -1,96 +1,47 @@
-import UIKit
-import CoreImage
-
-final class Meitu2016AdjustEngine {
-    static let shared = Meitu2016AdjustEngine()
-
-    private let context = CIContext(options: [
-        .useSoftwareRenderer: false
-    ])
-
-    private init() {}
-
-    func process(
-        _ image: UIImage,
-        brightness: Double, // -50 到 50
-        contrast: Double,   // -50 到 50
-        sharpness: Double   // 0 到 50
-    ) -> UIImage? {
-        guard let input = CIImage(image: image) else { return nil }
-
-        var output = input
-
-        // ========== 1. 压暗/提亮（Ins / 美易 风格保细节算法） ==========
-        if abs(brightness) > 0.001 {
-            if brightness < 0 {
-                // 负亮度：使用 CIHighlightShadowAdjust 压高光、保暗部，还原 2016 深冷蓝质感
-                // amount 范围从 0.0 到 1.0
-                let amount = Float(-brightness / 50.0)
-                
-                if let filter = CIFilter(name: "CIHighlightShadowAdjust") {
-                    filter.setValue(output, forKey: kCIInputImageKey)
-                    // inputHighlightAmount: 1.0 为正常，越低（如 0.0）高光压得越深
-                    filter.setValue(1.0 - amount * 0.8, forKey: "inputHighlightAmount")
-                    // inputShadowAmount: 保持暗部不塌陷，微调保细节
-                    filter.setValue(0.0, forKey: "inputShadowAmount")
-                    
-                    if let result = filter.outputImage {
-                        output = result
-                    }
-                }
-                
-                // 叠加微弱曝光补偿，增加画面通透度
-                if let expFilter = CIFilter(name: "CIExposureAdjust") {
-                    expFilter.setValue(output, forKey: kCIInputImageKey)
-                    expFilter.setValue(Float(brightness / 50.0 * 0.4), forKey: "inputEV")
-                    if let result = expFilter.outputImage {
-                        output = result
-                    }
-                }
-            } else {
-                // 正亮度：正常使用 CIColorControls 提升整体明度
-                if let filter = CIFilter(name: "CIColorControls") {
-                    filter.setValue(output, forKey: kCIInputImageKey)
-                    filter.setValue(Float(brightness / 50.0 * 0.35), forKey: "inputBrightness")
-                    if let result = filter.outputImage {
-                        output = result
-                    }
-                }
+// ========== 1. 压暗/提亮（2016 美图/美易 深度冷调压暗） ==========
+if abs(brightness) > 0.001 {
+    if brightness < 0 {
+        // 归一化参数 0.0 ~ 1.0
+        let amount = Float(-brightness / 50.0)
+        
+        // 第一步：压高光保蓝天（保留天空细节不爆白，产生深蓝质感）
+        if let highlightFilter = CIFilter(name: "CIHighlightShadowAdjust") {
+            highlightFilter.setValue(output, forKey: kCIInputImageKey)
+            // 压高光强度：随着 amount 增加，高光拉降更狠
+            highlightFilter.setValue(1.0 - amount * 0.95, forKey: "inputHighlightAmount")
+            highlightFilter.setValue(0.0, forKey: "inputShadowAmount")
+            if let result = highlightFilter.outputImage {
+                output = result
             }
         }
-
-        // ========== 2. 对比度 ==========
-        if abs(contrast) > 0.001 {
-            if let filter = CIFilter(name: "CIColorControls") {
-                filter.setValue(output, forKey: kCIInputImageKey)
-                filter.setValue(Float(1.0 + contrast / 50.0 * 0.5), forKey: "inputContrast")
-                if let result = filter.outputImage {
-                    output = result
-                }
+        
+        // 第二步：暗部与中音压暗（加重暗度，解决不够暗的问题）
+        // 使用 CIGammaAdjust，inputPower 越大整体暗部沉降越深（1.0 是原图，最大压到 1.6~1.8）
+        if let gammaFilter = CIFilter(name: "CIGammaAdjust") {
+            gammaFilter.setValue(output, forKey: kCIInputImageKey)
+            let gammaPower = 1.0 + amount * 0.75  // 可调节这个系数（如 0.75 -> 0.95）来进一步加重暗度
+            gammaFilter.setValue(gammaPower, forKey: "inputPower")
+            if let result = gammaFilter.outputImage {
+                output = result
             }
         }
-
-        // ========== 3. 锐化/清晰度 ==========
-        if sharpness > 0.001 {
-            if let filter = CIFilter(name: "CISharpenLuminance") {
-                filter.setValue(output, forKey: kCIInputImageKey)
-                filter.setValue(1.0, forKey: "inputRadius")
-                filter.setValue(Float(sharpness / 50.0 * 0.8), forKey: "inputSharpness")
-                if let result = filter.outputImage {
-                    output = result
-                }
+        
+        // 第三步：适度下调曝光，让整体画面彻底深沉下去
+        if let expFilter = CIFilter(name: "CIExposureAdjust") {
+            expFilter.setValue(output, forKey: kCIInputImageKey)
+            expFilter.setValue(-amount * 0.65, forKey: "inputEV")
+            if let result = expFilter.outputImage {
+                output = result
             }
         }
-
-        // 渲染生成 CGImage
-        guard let cgImage = context.createCGImage(output, from: output.extent) else {
-            return nil
+    } else {
+        // 正亮度：正常提升明度
+        if let filter = CIFilter(name: "CIColorControls") {
+            filter.setValue(output, forKey: kCIInputImageKey)
+            filter.setValue(Float(brightness / 50.0 * 0.35), forKey: "inputBrightness")
+            if let result = filter.outputImage {
+                output = result
+            }
         }
-
-        return UIImage(
-            cgImage: cgImage,
-            scale: image.scale,
-            orientation: image.imageOrientation
-        )
     }
 }
