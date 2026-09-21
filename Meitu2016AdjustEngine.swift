@@ -9,6 +9,10 @@ final class Meitu2016AdjustEngine {
         .useSoftwareRenderer: false
     ])
 
+    // 缓存上一次计算的 cube 数据，防止拖动滑块时重复计算造成卡顿
+    private var lastCubeAmount: Double = -1.0
+    private var cachedCubeData: Data?
+
     private init() {}
 
     func process(
@@ -23,11 +27,10 @@ final class Meitu2016AdjustEngine {
 
         var output = input
 
+        // 1. 亮度调整（负值走老美图特色 3D 调色，正值走标准亮暗调节）
         if brightness < -0.001 {
-            output = applyOldMeituBrightness(
-                output,
-                amount: min(1.0, -brightness / 50.0)
-            )
+            let amount = min(1.0, -brightness / 50.0)
+            output = applyOldMeituBrightness(output, amount: amount)
         } else if brightness > 0.001 {
             let filter = CIFilter.colorControls()
             filter.inputImage = output
@@ -40,6 +43,7 @@ final class Meitu2016AdjustEngine {
             }
         }
 
+        // 2. 对比度调整
         if abs(contrast) > 0.001 {
             let filter = CIFilter.colorControls()
             filter.inputImage = output
@@ -52,6 +56,7 @@ final class Meitu2016AdjustEngine {
             }
         }
 
+        // 3. 锐度调整
         if sharpness > 0.001 {
             let filter = CIFilter.sharpenLuminance()
             filter.inputImage = output
@@ -81,6 +86,28 @@ final class Meitu2016AdjustEngine {
         _ image: CIImage,
         amount: Double
     ) -> CIImage {
+        // 量化强度，避免浮点数微小抖动触发不必要的重新计算
+        let quantizedAmount = CoreGraphics.round(amount * 100.0) / 100.0
+        
+        let data: Data
+        if let cached = cachedCubeData, abs(lastCubeAmount - quantizedAmount) < 0.001 {
+            data = cached
+        } else {
+            data = generateOldMeituCubeData(amount: quantizedAmount)
+            cachedCubeData = data
+            lastCubeAmount = quantizedAmount
+        }
+
+        let filter = CIFilter.colorCube()
+        filter.inputImage = image
+        filter.cubeDimension = 32
+        filter.cubeData = data
+
+        return filter.outputImage ?? image
+    }
+
+    /// 生成老美图暗部质感/青蓝倾向的 3D Color Cube 数据
+    private func generateOldMeituCubeData(amount: Double) -> Data {
         let size = 32
         var cube = [Float]()
         cube.reserveCapacity(size * size * size * 4)
@@ -94,81 +121,28 @@ final class Meitu2016AdjustEngine {
                 for r in 0..<size {
                     let red = Double(r) / Double(size - 1)
 
-                    let y =
-                        0.2126 * red +
-                        0.7152 * green +
-                        0.0722 * blue
+                    // 1. 非线性 Gamma 压暗（比单纯乘法更有层次感）
+                    let gamma = 1.0 + amount * 0.8
+                    var rr = pow(red, gamma)
+                    var gg = pow(green, gamma)
+                    var bb = pow(blue, gamma)
 
-                    let shadow = max(
-                        0.0,
-                        min(1.0, 1.0 - y / 0.55)
-                    )
+                    // 2. 计算当前点的亮度 (Luma)
+                    let luma = 0.2126 * rr + 0.7152 * gg + 0.0722 * bb
 
-                    let highlight = max(
-                        0.0,
-                        min(1.0, (y - 0.25) / 0.75)
-                    )
+                    // 3. 经典美图/胶片风格的“暗部青蓝倾向”(Shadow Cyan Shift)
+                    let shadowWeight = max(0.0, 1.0 - luma * 2.2)
+                    bb += amount * shadowWeight * 0.12
+                    rr -= amount * shadowWeight * 0.04
 
-                    let darkScale =
-                        1.0 -
-                        amount * (
-                            0.28 +
-                            0.42 * pow(highlight, 0.72)
-                        )
-
-                    var rr = red * darkScale
-                    var gg = green * darkScale
-                    var bb = blue * darkScale
-
-                    let blueDominance =
-                        max(
-                            0.0,
-                            blue - max(red, green) * 0.72
-                        )
-
-                    let blueBoost =
-                        amount *
-                        blueDominance *
-                        (0.22 + 0.42 * highlight)
-
-                    bb += blueBoost
-
-                    let warmPreserve =
-                        max(
-                            0.0,
-                            red - blue * 0.72
-                        )
-
-                    let warmBoost =
-                        amount *
-                        warmPreserve *
-                        0.10 *
-                        (0.35 + shadow)
-
-                    rr += warmBoost
-
-                    let saturation =
-                        1.0 +
-                        amount * 0.12
-
-                    let mid =
-                        0.299 * rr +
-                        0.587 * gg +
-                        0.114 * bb
-
+                    // 4. 适度增强饱和度，防止画面发灰
+                    let saturation = 1.0 + amount * 0.15
+                    let mid = 0.299 * rr + 0.587 * gg + 0.114 * bb
                     rr = mid + (rr - mid) * saturation
                     gg = mid + (gg - mid) * saturation
                     bb = mid + (bb - mid) * saturation
 
-                    let shadowLift =
-                        amount *
-                        0.035 *
-                        shadow
-
-                    rr += shadowLift
-                    gg += shadowLift
-                    bb += shadowLift
-
+                    // 5. 边界裁剪
                     rr = max(0.0, min(1.0, rr))
                     gg = max(0.0, min(1.0, gg))
                     bb = max(0.0, min(1.0, bb))
@@ -181,15 +155,6 @@ final class Meitu2016AdjustEngine {
             }
         }
 
-        let data = cube.withUnsafeBufferPointer {
-            Data(buffer: $0)
-        }
-
-        let filter = CIFilter.colorCube()
-        filter.inputImage = image
-        filter.cubeDimension = Float(size)
-        filter.cubeData = data
-
-        return filter.outputImage ?? image
+        return cube.withUnsafeBufferPointer { Data(buffer: $0) }
     }
 }
