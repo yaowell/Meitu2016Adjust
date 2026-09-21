@@ -2,8 +2,8 @@ import UIKit
 import CoreImage
 import Compression
 
-final class Meitu2016Engine {
-    static let shared = Meitu2016Engine()
+final class Meitu2016AdjustEngine {
+    static let shared = Meitu2016AdjustEngine()
     
     // 101 x 256 解压后的 LUT 缓存
     private let lutBuffer: [UInt8]
@@ -39,9 +39,6 @@ eNq9nQXbXsURhotDcHf3IMFdgiQ4QYMHKyRYkJYipVSp00IFJziFYsWlpWgIGjRA0SKBhBBXpLI7Mzuy
     }
 
     /// 执行老版美图亮度 LUT 查表
-    /// - Parameters:
-    ///   - image: 输入图片
-    ///   - value: 亮度滑动值 (-50.0 ~ 50.0)
     func process(_ image: UIImage, brightness value: Double) -> UIImage? {
         guard let cgImage = image.cgImage, !lutBuffer.isEmpty else { return image }
         
@@ -49,7 +46,6 @@ eNq9nQXbXsURhotDcHf3IMFdgiQ4QYMHKyRYkJYipVSp00IFJziFYsWlpWgIGjRA0SKBhBBXpLI7Mzuy
         let clampedValue = max(-50.0, min(50.0, value))
         let rowIndex = Int((clampedValue + 50.0).rounded())
         
-        // 如果处于 0 (第50行原图)，直接返回
         if rowIndex == 50 { return image }
         
         let lutOffset = rowIndex * 256
@@ -59,10 +55,8 @@ eNq9nQXbXsURhotDcHf3IMFdgiQ4QYMHKyRYkJYipVSp00IFJziFYsWlpWgIGjRA0SKBhBBXpLI7Mzuy
         let height = cgImage.height
         let totalBytes = width * height * 4
         
-        // 2. 分配像素内存空间
         var pixelData = [UInt8](repeating: 0, count: totalBytes)
         
-        // 强制使用 RGBA 格式，避免小端序（Little-Endian）通道错位
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
         
@@ -80,7 +74,6 @@ eNq9nQXbXsURhotDcHf3IMFdgiQ4QYMHKyRYkJYipVSp00IFJziFYsWlpWgIGjRA0SKBhBBXpLI7Mzuy
         
         context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
         
-        // 3. 内存直接查表映射（C 语言速度，确保 UISlider 滑动实时响应不卡顿）
         lutBuffer.withUnsafeBufferPointer { lutPtr in
             guard let lutBase = lutPtr.baseAddress?.advanced(by: lutOffset) else { return }
             
@@ -89,16 +82,14 @@ eNq9nQXbXsURhotDcHf3IMFdgiQ4QYMHKyRYkJYipVSp00IFJziFYsWlpWgIGjRA0SKBhBBXpLI7Mzuy
                 
                 var i = 0
                 while i < totalBytes {
-                    pixels[i]     = lutBase[Int(pixels[i])]     // Red
-                    pixels[i + 1] = lutBase[Int(pixels[i + 1])] // Green
-                    pixels[i + 2] = lutBase[Int(pixels[i + 2])] // Blue
-                    // pixels[i + 3] 为 Alpha 通道，不处理
+                    pixels[i]     = lutBase[Int(pixels[i])]     // R
+                    pixels[i + 1] = lutBase[Int(pixels[i + 1])] // G
+                    pixels[i + 2] = lutBase[Int(pixels[i + 2])] // B
                     i += 4
                 }
             }
         }
         
-        // 4. 生成新图像
         guard let newCGImage = context.makeImage() else { return nil }
         
         return UIImage(
