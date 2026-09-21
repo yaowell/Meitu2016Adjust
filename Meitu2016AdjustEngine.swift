@@ -5,11 +5,9 @@ import Compression
 final class Meitu2016AdjustEngine {
     static let shared = Meitu2016AdjustEngine()
     
-    // 101 x 256 解压后的 LUT 缓存
     private let lutBuffer: [UInt8]
 
     private init() {
-        // 2016 美图 101x256 调光 LUT 密文
         let base64String = """
 eNq9nQXbXsURhotDcHf3IMFdgiQ4QYMHKyRYkJYipVSp00IFJziFYsWlpWgIGjRA0SKBhBBXpLI7MzuyO3vO+wXan/Bczz33zDnv+ZJvzDDDjDPNNPPMs8w662yzzz7HHN3mnHOuueeeZ55555tv/gUWWHDBhRZeeJFFF11sscWXWGLJpZZaeullll12ueWXX2HFFVdaaeVVVll1tdVWX737GmusudZaa6/dY5111l1vvfXX32DDDTfaeONNNtl0s80232KLLbfcauute26zzbbbbrf99r16995hxx132mnnXXbZdbfddt+9zx577LnXXnvvvc+++/bdb7/9DzjgwIMOOviQfv0OPeyww4848shvHnX00f0HHHPMsccdf8IJA0886eSTT/nWt0/9zmmnn37Gmd8963tnf/8HP/zRj39yzk9/9vNf/PJXvz73N+ed/7vf/+GPF1508SWXXT7oyquuvva6P93w55tuue0vd9x1z733//XBhx59/Iknn3nuhZdf/cdb//xwxOgJ0/7zDT//vJR/Icue/1LLw3tX3v3pdaX31Xv/m2/34aXf/e9Xv3j0d3L3
 """
@@ -38,11 +36,10 @@ eNq9nQXbXsURhotDcHf3IMFdgiQ4QYMHKyRYkJYipVSp00IFJziFYsWlpWgIGjRA0SKBhBBXpLI7Mzuy
         self.lutBuffer = Array(buffer.prefix(decompressedCount))
     }
 
-    /// 执行老版美图亮度 LUT 查表
-    func process(_ image: UIImage, brightness value: Double) -> UIImage? {
+    /// 支持多参数调用的处理函数
+    func process(_ image: UIImage, brightness value: Double, contrast: Double = 0, saturation: Double = 0) -> UIImage? {
         guard let cgImage = image.cgImage, !lutBuffer.isEmpty else { return image }
         
-        // 1. 将 -50 ~ 50 映射到 LUT 行索引 0 ~ 100（默认0映射到第50行）
         let clampedValue = max(-50.0, min(50.0, value))
         let rowIndex = Int((clampedValue + 50.0).rounded())
         
@@ -56,7 +53,6 @@ eNq9nQXbXsURhotDcHf3IMFdgiQ4QYMHKyRYkJYipVSp00IFJziFYsWlpWgIGjRA0SKBhBBXpLI7Mzuy
         let totalBytes = width * height * 4
         
         var pixelData = [UInt8](repeating: 0, count: totalBytes)
-        
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue
         
