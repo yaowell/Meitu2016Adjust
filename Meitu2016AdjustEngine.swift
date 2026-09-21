@@ -7,28 +7,6 @@ final class Meitu2016AdjustEngine {
     private let context = CIContext(options: [
         .useSoftwareRenderer: false
     ])
-    
-    // 使用 CIColorKernel 直接处理像素 RGB 通道，避免 3D Cube 的插值损失
-    private let kernel: CIColorKernel? = {
-        let kernelSource = """
-        kernel vec4 meituDarkenKernel(__sample image, float amount) {
-            vec3 color = image.rgb;
-            
-            // 1. 经典通道差分压暗：R 压最狠(1.20)，G 次之(1.05)，B 少压(0.40) 以保住蓝天
-            vec3 darkOffset = vec3(1.20, 1.05, 0.40) * amount;
-            color -= darkOffset;
-            
-            // 2. 避免压暗后画面发灰：拉升微量对比度 (Boost 1.12)
-            color = (color - 0.5) * (1.0 + amount * 0.12) + 0.5;
-            
-            // 3. 保护极暗部（防止马路和树荫死黑）
-            color = max(vec3(0.02), color);
-            
-            return vec4(clamp(color, 0.0, 1.0), image.a);
-        }
-        """
-        return CIColorKernel(source: kernelSource)
-    }()
 
     private init() {}
 
@@ -42,22 +20,47 @@ final class Meitu2016AdjustEngine {
 
         var output = input
 
-        // ========== 1. 亮度（核心负向压暗逻辑） ==========
-        if brightness < -0.001 {
-            // 归一化 amount 0.0 ~ 0.5
-            let amount = Float(-brightness / 50.0 * 0.45)
-            
-            if let kernel = kernel,
-               let result = kernel.apply(extent: output.extent, arguments: [output, amount]) {
-                output = result
-            }
-        } else if brightness > 0.001 {
-            // 正向提亮
-            if let filter = CIFilter(name: "CIColorControls") {
-                filter.setValue(output, forKey: kCIInputImageKey)
-                filter.setValue(Float(brightness / 50.0 * 0.35), forKey: "inputBrightness")
-                if let result = filter.outputImage {
-                    output = result
+        // ========== 1. 压暗/提亮 ==========
+        if abs(brightness) > 0.001 {
+            if brightness < 0 {
+                // 负亮度：0.0 到 1.0 归一化强度
+                let amount = Float(-brightness / 50.0)
+                
+                // (1) 强力曝光压暗：从之前的 -0.4EV 提升到 -1.5EV，解决“拉到底都不够暗”的问题
+                if let expFilter = CIFilter(name: "CIExposureAdjust") {
+                    expFilter.setValue(output, forKey: kCIInputImageKey)
+                    expFilter.setValue(-amount * 1.5, forKey: "inputEV")
+                    if let result = expFilter.outputImage {
+                        output = result
+                    }
+                }
+
+                // (2) 压中音区暗度（Gamma 沉降）：让画面像美图那样稍微一拉就整体沉下去，不发灰
+                if let gammaFilter = CIFilter(name: "CIGammaAdjust") {
+                    gammaFilter.setValue(output, forKey: kCIInputImageKey)
+                    gammaFilter.setValue(1.0 + amount * 0.85, forKey: "inputPower")
+                    if let result = gammaFilter.outputImage {
+                        output = result
+                    }
+                }
+
+                // (3) 高光拉降与暗部保护：防止全图死黑的同时保住蓝天的厚重感
+                if let filter = CIFilter(name: "CIHighlightShadowAdjust") {
+                    filter.setValue(output, forKey: kCIInputImageKey)
+                    filter.setValue(1.0 - amount * 0.9, forKey: "inputHighlightAmount")
+                    filter.setValue(0.0, forKey: "inputShadowAmount")
+                    if let result = filter.outputImage {
+                        output = result
+                    }
+                }
+            } else {
+                // 正亮度：正常提升明度
+                if let filter = CIFilter(name: "CIColorControls") {
+                    filter.setValue(output, forKey: kCIInputImageKey)
+                    filter.setValue(Float(brightness / 50.0 * 0.35), forKey: "inputBrightness")
+                    if let result = filter.outputImage {
+                        output = result
+                    }
                 }
             }
         }
@@ -85,7 +88,7 @@ final class Meitu2016AdjustEngine {
             }
         }
 
-        // 渲染 CGImage
+        // 4. 渲染生成 CGImage
         guard let cgImage = context.createCGImage(output, from: output.extent) else {
             return nil
         }
