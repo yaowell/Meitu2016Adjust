@@ -1,4 +1,3 @@
-<CodeBlock language="swift" editable>
 import Accelerate
 import CoreGraphics
 import Foundation
