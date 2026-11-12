@@ -52,9 +52,9 @@ struct ContentView: View {
             }
             .padding()
             .navigationTitle("2016 调色")
-            .onChange(of: selectedItem) { _ in
+            .onChange(of: selectedItem) { newItem in
                 Task {
-                    guard let item = selectedItem,
+                    guard let item = newItem,
                           let data = try? await item.loadTransferable(type: Data.self),
                           let image = UIImage(data: data) else {
                         return
@@ -66,6 +66,7 @@ struct ContentView: View {
                         brightness = 0
                         contrast = 0
                         sharpness = 0
+                        print("📸 已成功加载照片，尺寸：\(image.size)")
                     }
                 }
             }
@@ -76,14 +77,26 @@ struct ContentView: View {
     }
 
     private func processImage() {
-        guard let originalImage else { return }
+        guard let originalImage = originalImage else {
+            print("⚠️ 无法调色：originalImage 为 nil（请先选择照片）")
+            return
+        }
 
-        processedImage = Meitu2016AdjustEngine.shared.process(
+        print("⚙️ 触发调色：亮度=\(brightness), 对比度=\(contrast), 锐度=\(sharpness)")
+
+        let result = Meitu2016AdjustEngine.shared.process(
             originalImage,
             brightness: brightness,
             contrast: contrast,
             sharpness: sharpness
         )
+
+        if let result = result {
+            print("✅ 调色成功，UI 已更新")
+            processedImage = result
+        } else {
+            print("❌ 调色失败：Meitu2016AdjustEngine 返回了 nil（多半是 LUT .bin 资源文件未成功加载，请检查 tablesReady）")
+        }
     }
 
     private func adjustmentSlider(
