@@ -308,7 +308,6 @@ public enum MeituAdjust {
             n
         )
 
-        // 引入独立的 tempResult 数组，避免同一变量既作输入又作输出的独占访问冲突
         var tempResult = [Float](
             repeating: 0,
             count: Int(n)
@@ -325,7 +324,6 @@ public enum MeituAdjust {
         var lo: Float = 0
         var hi: Float = 255
 
-        // 同样引入 clippedResult 数组以避免 vIP clip 时的独占冲突
         var clippedResult = [Float](
             repeating: 0,
             count: Int(n)
@@ -354,3 +352,72 @@ public enum MeituAdjust {
                 memcpy(
                     buf.data,
                     base,
+                    Int(n)
+                )
+            }
+        }
+    }
+
+    // MARK: - CGImage 转换
+
+    private static func align64(_ n: Int) -> Int {
+        (n + 63) / 64 * 64
+    }
+
+    private static func draw(
+        _ cg: CGImage,
+        into buf: inout vImage_Buffer
+    ) -> Bool {
+
+        let bitmapInfo =
+            CGImageAlphaInfo.premultipliedLast.rawValue |
+            CGBitmapInfo.byteOrder32Big.rawValue
+
+        guard let ctx = CGContext(
+            data: buf.data,
+            width: Int(buf.width),
+            height: Int(buf.height),
+            bitsPerComponent: 8,
+            bytesPerRow: buf.rowBytes,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: bitmapInfo
+        ) else {
+            return false
+        }
+
+        ctx.draw(
+            cg,
+            in: CGRect(
+                x: 0,
+                y: 0,
+                width: Int(buf.width),
+                height: Int(buf.height)
+            )
+        )
+
+        return true
+    }
+
+    private static func makeCGImage(
+        _ buf: inout vImage_Buffer
+    ) -> CGImage? {
+
+        let bitmapInfo =
+            CGImageAlphaInfo.premultipliedLast.rawValue |
+            CGBitmapInfo.byteOrder32Big.rawValue
+
+        guard let ctx = CGContext(
+            data: buf.data,
+            width: Int(buf.width),
+            height: Int(buf.height),
+            bitsPerComponent: 8,
+            bytesPerRow: buf.rowBytes,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: bitmapInfo
+        ) else {
+            return nil
+        }
+
+        return ctx.makeImage()
+    }
+}
