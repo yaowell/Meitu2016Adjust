@@ -1,23 +1,35 @@
+<CodeBlock language="yaml" editable>
 name: Meitu2016Adjust
 
+
 options:
-  bundleIdPrefix: com.meitu2016
-  deploymentTarget:
-    iOS: "16.0"
+bundleIdPrefix: com.meitu2016
+deploymentTarget:
+iOS: “16.0”
 
 targets:
-  Meitu2016Adjust:
-    type: application
-    platform: iOS
-    sources:
-      - path: Meitu2016AdjustApp.swift
-      - path: ContentView.swift
-      - path: Meitu2016AdjustEngine.swift
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.meitu2016.adjust
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: "2016调色"
-        INFOPLIST_KEY_NSCameraUsageDescription: "用于选择照片"
-        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "用于选择照片"
-        SWIFT_VERSION: "5.0"
+Meitu2016Adjust:
+type: application
+platform: iOS
+
+sources:
+  - path: Meitu2016AdjustApp.swift
+  - path: ContentView.swift
+  - path: Meitu2016AdjustEngine.swift
+  - path: MeituAdjust.swift
+  - path: MeituLUT.swift
+
+resources:
+  - path: brightness_301x256.bin
+  - path: contrast_151x256.bin
+
+settings:
+  base:
+    PRODUCT_BUNDLE_IDENTIFIER: com.meitu2016.adjust
+    GENERATE_INFOPLIST_FILE: YES
+    INFOPLIST_KEY_CFBundleDisplayName: "2016调色"
+    INFOPLIST_KEY_NSCameraUsageDescription: "用于选择照片"
+    INFOPLIST_KEY_NSPhotoLibraryUsageDescription: "用于选择照片"
+    SWIFT_VERSION: "5.0"
+
+</CodeBlock>
