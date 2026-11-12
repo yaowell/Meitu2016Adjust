@@ -1,5 +1,3 @@
-
-<CodeBlock language="swift" editable>
 import Foundation
 
 
